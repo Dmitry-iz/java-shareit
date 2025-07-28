@@ -2,6 +2,7 @@ package ru.practicum.shareit.user;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.user.dto.CreateUserRequestDto;
 import ru.practicum.shareit.user.dto.UpdateUserRequestDto;
@@ -12,41 +13,46 @@ import ru.practicum.shareit.user.service.UserService;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * TODO Sprint add-controllers.
- */
-
 @RestController
 @RequestMapping(path = "/users")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
+    private final UserMapper userMapper;
 
     @GetMapping
-    public List<UserDto> getAllUsers() {
-        return userService.getAll().stream()
-                .map(UserMapper::toUserDto)
+    public ResponseEntity<List<UserDto>> getAllUsers() {
+        List<UserDto> users = userService.getAll().stream()
+                .map(userMapper::toUserDto)
                 .collect(Collectors.toList());
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/{userId}")
-    public UserDto getUserById(@PathVariable Long userId) {
-        return UserMapper.toUserDto(userService.getById(userId));
+    public ResponseEntity<UserDto> getUserById(@PathVariable Long userId) {
+        User user = userService.getById(userId);
+        return ResponseEntity.ok(userMapper.toUserDto(user));
     }
 
     @PostMapping
-    public UserDto createUser(@RequestBody @Valid CreateUserRequestDto userDto) {
-        return UserMapper.toUserDto(userService.create(UserMapper.fromCreateDto(userDto)));
+    public ResponseEntity<UserDto> createUser(@RequestBody @Valid CreateUserRequestDto userDto) {
+        User user = userMapper.fromCreateDto(userDto);
+        User createdUser = userService.create(user);
+        return ResponseEntity.ok(userMapper.toUserDto(createdUser));
     }
 
     @PatchMapping("/{userId}")
-    public UserDto updateUser(@PathVariable Long userId, @RequestBody @Valid UpdateUserRequestDto userDto) {
-        return UserMapper.toUserDto(userService.update(userId, UserMapper.fromUpdateDto(userDto)));
+    public ResponseEntity<UserDto> updateUser(@PathVariable Long userId,
+                                              @RequestBody @Valid UpdateUserRequestDto userDto) {
+        User user = userMapper.fromUpdateDto(userDto);
+        User updatedUser = userService.update(userId, user);
+        return ResponseEntity.ok(userMapper.toUserDto(updatedUser));
     }
 
     @DeleteMapping("/{userId}")
-    public void deleteUser(@PathVariable Long userId) {
+    public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
         userService.delete(userId);
+        return ResponseEntity.noContent().build();
     }
 }
