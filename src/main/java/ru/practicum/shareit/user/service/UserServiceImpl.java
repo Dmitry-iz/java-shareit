@@ -1,70 +1,80 @@
 package ru.practicum.shareit.user.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.exception.UserAlreadyExistsException;
 import ru.practicum.shareit.exception.UserNotFoundException;
-import ru.practicum.shareit.user.User;
+import ru.practicum.shareit.user.dto.CreateUserRequestDto;
+import ru.practicum.shareit.user.dto.UpdateUserRequestDto;
+import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.mapper.UserMapper;
+import ru.practicum.shareit.user.model.User;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final Map<Long, User> users = new HashMap<>();
     private final Map<String, User> emailToUser = new HashMap<>();
     private long idCounter = 1;
+    private final UserMapper userMapper;
 
     @Override
-    public List<User> getAll() {
-        return new ArrayList<>(users.values());
+    public List<UserDto> getAll() {
+        return users.values().stream()
+                .map(userMapper::toUserDto)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public User getById(Long userId) {
+    public UserDto getById(Long userId) {
         User user = users.get(userId);
         if (user == null) {
             throw new UserNotFoundException("User with ID " + userId + " not found");
         }
-        return user;
+        return userMapper.toUserDto(user);
     }
 
     @Override
-    public User create(User user) {
-        if (emailToUser.containsKey(user.getEmail())) {
-            throw new UserAlreadyExistsException("User with email " + user.getEmail() + " already exists");
+    public UserDto create(CreateUserRequestDto userDto) {
+        if (emailToUser.containsKey(userDto.getEmail())) {
+            throw new UserAlreadyExistsException("User with email " + userDto.getEmail() + " already exists");
         }
+        User user = userMapper.fromCreateDto(userDto);
         user.setId(idCounter++);
         users.put(user.getId(), user);
         emailToUser.put(user.getEmail(), user);
         log.info("Created user: {}", user);
-        return user;
+        return userMapper.toUserDto(user);
     }
 
     @Override
-    public User update(Long userId, User userUpdateData) {
-        User existingUser = getById(userId);
-
-        if (userUpdateData.getName() != null) {
-            existingUser.setName(userUpdateData.getName());
+    public UserDto update(Long userId, UpdateUserRequestDto userDto) {
+        User existingUser = users.get(userId);
+        if (existingUser == null) {
+            throw new UserNotFoundException("User with ID " + userId + " not found");
         }
 
-        if (userUpdateData.getEmail() != null && !userUpdateData.getEmail().equals(existingUser.getEmail())) {
-            if (emailToUser.containsKey(userUpdateData.getEmail())) {
-                throw new UserAlreadyExistsException("Email " + userUpdateData.getEmail() + " already in use");
+        if (userDto.getEmail() != null && !userDto.getEmail().equals(existingUser.getEmail())) {
+            if (emailToUser.containsKey(userDto.getEmail())) {
+                throw new UserAlreadyExistsException("Email " + userDto.getEmail() + " already in use");
             }
             emailToUser.remove(existingUser.getEmail());
-            existingUser.setEmail(userUpdateData.getEmail());
-            emailToUser.put(userUpdateData.getEmail(), existingUser);
+            emailToUser.put(userDto.getEmail(), existingUser);
         }
+
+        userMapper.updateUserFromDto(userDto, existingUser);
 
         users.put(userId, existingUser);
         log.info("Updated user: {}", existingUser);
-        return existingUser;
+        return userMapper.toUserDto(existingUser);
     }
 
     @Override
