@@ -9,6 +9,7 @@ import ru.practicum.shareit.item.dto.CreateItemRequestDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.UpdateItemRequestDto;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.request.model.ItemRequest;
 import ru.practicum.shareit.user.model.User;
 
 import java.util.List;
@@ -42,7 +43,7 @@ public interface ItemMapper {
     }
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "requestId", ignore = true)
+    @Mapping(target = "requestId", source = "dto.requestId", qualifiedByName = "mapRequestId")
     @Mapping(target = "name", source = "dto.name")
     @Mapping(target = "description", source = "dto.description")
     @Mapping(target = "available", source = "dto.available")
@@ -51,7 +52,18 @@ public interface ItemMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "owner", ignore = true)
-    @Mapping(target = "requestId", ignore = true)
+    @Mapping(target = "requestId", source = "dto.requestId", qualifiedByName = "mapRequestId")
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateItemFromDto(UpdateItemRequestDto dto, @MappingTarget Item item);
+
+    @Named("mapRequestId")
+    default ItemRequest mapRequestId(Long requestId) {
+        if (requestId == null) {
+            return null;
+        }
+        ItemRequest request = new ItemRequest();
+        request.setId(requestId);
+        return request;
+    }
+
 }
