@@ -4,11 +4,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
-import ru.practicum.shareit.client.BookingClient;
-import ru.practicum.shareit.client.ItemClient;
+import ru.practicum.shareit.BookingClient;
+import ru.practicum.shareit.ItemClient;
 
-import ru.practicum.shareit.client.ItemRequestClient;
-import ru.practicum.shareit.client.UserClient;
+import ru.practicum.shareit.ItemRequestClient;
+import ru.practicum.shareit.UserClient;
 
 
 @Configuration

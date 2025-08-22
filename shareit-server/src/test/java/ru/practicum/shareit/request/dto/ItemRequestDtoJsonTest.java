@@ -74,48 +74,4 @@ class ItemRequestDtoJsonTest {
         assertThat(dto.getCreated()).isEqualTo(LocalDateTime.of(2023, 1, 1, 12, 0));
         assertThat(dto.getItems()).isEmpty();
     }
-
-//    @Test
-//    void testItemRequestDtoValidation() {
-//        // Valid DTO
-//        ItemRequestDto validDto = new ItemRequestDto("Valid description");
-//        Set<ConstraintViolation<ItemRequestDto>> violations = validator.validate(validDto);
-//        assertThat(violations).isEmpty();
-//
-//        // Invalid DTO - blank description
-//        ItemRequestDto invalidDto = new ItemRequestDto("");
-//        violations = validator.validate(invalidDto);
-//        assertThat(violations).hasSize(1);
-//        assertThat(violations.iterator().next().getMessage()).contains("cannot be blank");
-//
-//        // Invalid DTO - null description
-//        ItemRequestDto nullDto = new ItemRequestDto(null);
-//        violations = validator.validate(nullDto);
-//        assertThat(violations).hasSize(1);
-//        assertThat(violations.iterator().next().getMessage()).contains("cannot be blank");
-//    }
-//
-//    @Test
-//    void testItemRequestWithItemsDtoValidation() {
-//        // Valid DTO
-//        ItemRequestWithItemsDto validDto = new ItemRequestWithItemsDto(
-//                1L,
-//                "Valid description",
-//                LocalDateTime.now(),
-//                List.of()
-//        );
-//        Set<ConstraintViolation<ItemRequestWithItemsDto>> violations = validator.validate(validDto);
-//        assertThat(violations).isEmpty();
-//
-//        // Invalid DTO - null description
-//        ItemRequestWithItemsDto invalidDto = new ItemRequestWithItemsDto(
-//                1L,
-//                null,
-//                LocalDateTime.now(),
-//                List.of()
-//        );
-//        violations = validator.validate(invalidDto);
-//        assertThat(violations).hasSize(1);
-//        assertThat(violations.iterator().next().getMessage()).contains("cannot be blank");
-//    }
 }

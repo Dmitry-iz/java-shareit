@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.shareit.client.ItemRequestClient;
+import ru.practicum.shareit.ItemRequestClient;
 
 import ru.practicum.shareit.dto.request.ItemRequestDto;
 

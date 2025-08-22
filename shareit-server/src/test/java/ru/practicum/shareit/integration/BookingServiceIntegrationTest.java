@@ -69,20 +69,6 @@ class BookingServiceIntegrationTest extends BaseIntegrationTest {
                 bookingService.create(user1.getId(), requestDto)
         );
     }
-//
-//    @Test
-//    void createBooking_WithDateConflicts_ShouldThrowException() {
-//        // Given
-//        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
-//        requestDto.setItemId(item1.getId());
-//        requestDto.setStart(LocalDateTime.now().plusDays(1).minusHours(1));
-//        requestDto.setEnd(LocalDateTime.now().plusDays(1).plusHours(1));
-//
-//        // When & Then
-//        assertThrows(RuntimeException.class, () ->
-//                bookingService.create(user2.getId(), requestDto)
-//        );
-//    }
 
     @Test
     void approveBooking_ShouldApproveSuccessfully() {

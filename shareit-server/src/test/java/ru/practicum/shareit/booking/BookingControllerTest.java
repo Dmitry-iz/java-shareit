@@ -24,6 +24,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ru.practicum.shareit.exception.BadRequestException;
+
 @WebMvcTest(BookingController.class)
 class BookingControllerTest {
 
@@ -55,20 +57,6 @@ class BookingControllerTest {
                 .andExpect(jsonPath("$.id").value(responseDto.getId()))
                 .andExpect(jsonPath("$.status").value(responseDto.getStatus().name()));
     }
-
-//    @Test
-//    void create_InvalidDates_ReturnsBadRequest() throws Exception {
-//        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
-//        requestDto.setItemId(1L);
-//        requestDto.setStart(LocalDateTime.now().plusDays(2));
-//        requestDto.setEnd(LocalDateTime.now().plusDays(1)); // End before start
-//
-//        mockMvc.perform(post("/bookings")
-//                        .header("X-Sharer-User-Id", userId)
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(requestDto)))
-//                .andExpect(status().isBadRequest());
-//    }
 
     @Test
     void approve_ValidRequest_ReturnsApprovedBooking() throws Exception {
@@ -142,14 +130,6 @@ class BookingControllerTest {
                 .andExpect(jsonPath("$[0].id").value(bookingDto.getId()));
     }
 
-//    @Test
-//    void getAllByUser_InvalidState_ReturnsBadRequest() throws Exception {
-//        mockMvc.perform(get("/bookings")
-//                        .header("X-Sharer-User-Id", userId)
-//                        .param("state", "INVALID_STATE"))
-//                .andExpect(status().isBadRequest());
-//    }
-
     private CreateBookingRequestDto createValidBookingRequest() {
         CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
         requestDto.setItemId(1L);
@@ -176,5 +156,35 @@ class BookingControllerTest {
         dto.setItem(item);
 
         return dto;
+    }
+
+    @Test
+    void create_InvalidDates_ReturnsBadRequest() throws Exception {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(1L);
+        requestDto.setStart(LocalDateTime.now().plusDays(2));
+        requestDto.setEnd(LocalDateTime.now().plusDays(1)); // End before start
+
+        // Мокируем сервис, чтобы он бросил исключение, которое будет обработано в ErrorHandler
+        when(bookingService.create(anyLong(), any(CreateBookingRequestDto.class)))
+                .thenThrow(new BadRequestException("End date must be after start date"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getAllByUser_InvalidState_ReturnsBadRequest() throws Exception {
+        // Мокируем сервис, чтобы он бросил исключение для невалидного состояния
+        when(bookingService.getAllByUser(anyLong(), eq("INVALID_STATE")))
+                .thenThrow(new BadRequestException("Unknown state: INVALID_STATE"));
+
+        mockMvc.perform(get("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .param("state", "INVALID_STATE"))
+                .andExpect(status().isBadRequest());
     }
 }

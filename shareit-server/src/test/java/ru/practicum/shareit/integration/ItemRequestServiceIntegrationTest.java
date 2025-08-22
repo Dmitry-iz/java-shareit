@@ -45,22 +45,6 @@ class ItemRequestServiceIntegrationTest {
         secondUserId = secondCreatedUser.getId();
     }
 
-//    @Test
-//    void create_shouldCreateItemRequest() {
-//        // Given
-//        ItemRequestDto requestDto = new ItemRequestDto("Need a drill");
-//
-//        // When
-//        ItemRequestWithItemsDto createdRequest = itemRequestService.create(userId, requestDto);
-//
-//        // Then
-//        assertThat(createdRequest).isNotNull();
-//        assertThat(createdRequest.getId()).isNotNull();
-//        assertThat(createdRequest.getDescription()).isEqualTo("Need a drill");
-//        assertThat(createdRequest.getCreated()).isNotNull();
-//        assertThat(createdRequest.getItems()).isEmpty();
-//    }
-
     @Test
     void getAllByUser_shouldReturnUserRequests() {
         // Given

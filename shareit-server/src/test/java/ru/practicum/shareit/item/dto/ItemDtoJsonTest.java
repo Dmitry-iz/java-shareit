@@ -70,27 +70,4 @@ class ItemDtoJsonTest {
         assertThat(result.getComments()).hasSize(1);
         assertThat(result.getComments().get(0).getText()).isEqualTo("Great item!");
     }
-
-//    @Test
-//    void testSerializeWithNullValues() throws IOException {
-//        ItemDto itemDto = new ItemDto(
-//                1L,
-//                "Item",
-//                "Description",
-//                true,
-//                null,
-//                null,
-//                null
-//        );
-//
-//        JsonContent<ItemDto> result = json.write(itemDto);
-//
-//        assertThat(result).extractingJsonPathNumberValue("$.id").isEqualTo(1);
-//        assertThat(result).extractingJsonPathStringValue("$.name").isEqualTo("Item");
-//        assertThat(result).extractingJsonPathStringValue("$.description").isEqualTo("Description");
-//        assertThat(result).extractingJsonPathBooleanValue("$.available").isTrue();
-//        assertThat(result).extractingJsonPathValue("$.lastBooking").isNull();
-//        assertThat(result).extractingJsonPathValue("$.nextBooking").isNull();
-//        assertThat(result).extractingJsonPathArrayValue("$.comments").isEmpty();
-//    }
 }

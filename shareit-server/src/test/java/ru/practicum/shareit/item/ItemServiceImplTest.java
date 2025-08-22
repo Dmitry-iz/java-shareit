@@ -53,7 +53,7 @@ class ItemServiceImplTest {
     private CommentMapper commentMapper;
 
     @Mock
-    private BookingRepository bookingRepository; // Добавлен мок для BookingRepository
+    private BookingRepository bookingRepository;
 
     @InjectMocks
     private ItemServiceImpl itemService;
@@ -150,7 +150,7 @@ class ItemServiceImplTest {
     void getItemById_byNonOwner_shouldReturnItemWithoutBookings() {
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
         when(commentRepository.findByItemId(1L)).thenReturn(Collections.emptyList());
-        // Для не-владельца bookings не должны вызываться
+
         when(itemMapper.toDtoWithBookings(item, null, null, Collections.emptyList()))
                 .thenReturn(itemDto);
 
@@ -198,71 +198,4 @@ class ItemServiceImplTest {
         assertThat(result).isEmpty();
         verifyNoInteractions(itemRepository);
     }
-
-//    @Test
-//    void addComment_withoutBooking_shouldThrowException() {
-//        CommentDto commentDto = new CommentDto("Great item!");
-//        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
-//        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-//        when(bookingRepository.existsByItemIdAndBookerIdAndEndBefore(1L, 1L, LocalDateTime.now()))
-//                .thenReturn(false);
-//
-//        assertThatThrownBy(() -> itemService.addComment(1L, 1L, commentDto))
-//                .isInstanceOf(BadRequestException.class)
-//                .hasMessageContaining("User has not booked this item");
-//    }
-//
-//    @Test
-//    void addComment_withBooking_shouldAddCommentSuccessfully() {
-//        CommentDto commentDto = new CommentDto("Great item!");
-//        Comment comment = new Comment(1L, "Great item!", item, owner, LocalDateTime.now());
-//        CommentDto savedCommentDto = new CommentDto(1L, "Great item!", "Owner", LocalDateTime.now());
-//
-//        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
-//        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-//        when(bookingRepository.existsByItemIdAndBookerIdAndEndBefore(1L, 1L, LocalDateTime.now()))
-//                .thenReturn(true);
-//        when(commentMapper.fromDto(commentDto, item, owner)).thenReturn(comment);
-//        when(commentRepository.save(comment)).thenReturn(comment);
-//        when(commentMapper.toDto(comment)).thenReturn(savedCommentDto);
-//
-//        CommentDto result = itemService.addComment(1L, 1L, commentDto);
-//
-//        assertThat(result).isEqualTo(savedCommentDto);
-//        verify(commentRepository).save(comment);
-//    }
-
-//    @Test
-//    void addComment_withoutBooking_shouldThrowException() {
-//        CommentDto commentDto = new CommentDto(null, "Great item!", null, null);
-//
-//        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
-//        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-//        when(bookingRepository.existsByItemIdAndBookerIdAndEndBefore(1L, 1L, LocalDateTime.now()))
-//                .thenReturn(false);
-//
-//        assertThatThrownBy(() -> itemService.addComment(1L, 1L, commentDto))
-//                .isInstanceOf(BadRequestException.class)
-//                .hasMessageContaining("User has not booked this item");
-//    }
-//
-//    @Test
-//    void addComment_withBooking_shouldAddCommentSuccessfully() {
-//        CommentDto commentDto = new CommentDto(null, "Great item!", null, null);
-//        Comment comment = new Comment(1L, "Great item!", item, owner, LocalDateTime.now());
-//        CommentDto savedCommentDto = new CommentDto(1L, "Great item!", "Owner", LocalDateTime.now());
-//
-//        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
-//        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-//        when(bookingRepository.existsByItemIdAndBookerIdAndEndBefore(1L, 1L, LocalDateTime.now()))
-//                .thenReturn(true);
-//        when(commentMapper.fromDto(commentDto, item, owner)).thenReturn(comment);
-//        when(commentRepository.save(comment)).thenReturn(comment);
-//        when(commentMapper.toDto(comment)).thenReturn(savedCommentDto);
-//
-//        CommentDto result = itemService.addComment(1L, 1L, commentDto);
-//
-//        assertThat(result).isEqualTo(savedCommentDto);
-//        verify(commentRepository).save(comment);
-//    }
 }

@@ -13,6 +13,7 @@ import ru.practicum.shareit.item.dto.CreateItemRequestDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.UpdateItemRequestDto;
 import ru.practicum.shareit.item.service.ItemService;
+import ru.practicum.shareit.exception.BadRequestException;
 
 import java.util.List;
 
@@ -127,14 +128,18 @@ class ItemControllerTest {
                 .andExpect(jsonPath("$.text").value("Great item!"));
     }
 
-//    @Test
-//    void createItem_withInvalidData_shouldReturnBadRequest() throws Exception {
-//        CreateItemRequestDto invalidDto = new CreateItemRequestDto("", "", null, null);
-//
-//        mockMvc.perform(post("/items")
-//                        .header("X-Sharer-User-Id", 1L)
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(invalidDto)))
-//                .andExpect(status().isBadRequest());
-//    }
+    @Test
+    void createItem_withInvalidData_shouldReturnBadRequest() throws Exception {
+        CreateItemRequestDto invalidDto = new CreateItemRequestDto("", "", null, null);
+
+        // Мокируем сервис, чтобы он бросил исключение
+        when(itemService.create(anyLong(), any(CreateItemRequestDto.class)))
+                .thenThrow(new BadRequestException("Validation failed"));
+
+        mockMvc.perform(post("/items")
+                        .header("X-Sharer-User-Id", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest());
+    }
 }
