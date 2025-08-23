@@ -1,7 +1,7 @@
 package ru.practicum.shareit.booking.service;
 
-import ru.practicum.shareit.booking.BookingDto;
-import ru.practicum.shareit.booking.CreateBookingRequestDto;
+import ru.practicum.shareit.booking.dto.BookingDto;
+import ru.practicum.shareit.booking.dto.CreateBookingRequestDto;
 
 import java.util.List;
 

@@ -6,6 +6,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
+import ru.practicum.shareit.booking.dto.BookingDto;
+import ru.practicum.shareit.booking.dto.CreateBookingRequestDto;
 import ru.practicum.shareit.booking.exception.BookingAccessDeniedException;
 import ru.practicum.shareit.booking.exception.BookingAlreadyProcessedException;
 import ru.practicum.shareit.booking.exception.BookingOwnItemException;
@@ -373,7 +375,7 @@ class BookingServiceImplTest {
         CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
         requestDto.setItemId(itemId);
         requestDto.setStart(LocalDateTime.now().plusDays(1));
-        requestDto.setEnd(null); // Null end date
+        requestDto.setEnd(null);
 
         assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
 
@@ -386,7 +388,7 @@ class BookingServiceImplTest {
     void create_WithStartInPast_ShouldThrowBadRequestException() {
         CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
         requestDto.setItemId(itemId);
-        requestDto.setStart(LocalDateTime.now().minusDays(1)); // Past start
+        requestDto.setStart(LocalDateTime.now().minusDays(1));
         requestDto.setEnd(LocalDateTime.now().plusDays(1));
 
         assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
@@ -595,5 +597,73 @@ class BookingServiceImplTest {
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void create_WithStartAfterEnd_ShouldThrowBadRequestException() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(LocalDateTime.now().plusDays(2));
+        requestDto.setEnd(LocalDateTime.now().plusDays(1));
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+        verify(bookingRepository, never()).existsApprovedBookingsForItemBetweenDates(anyLong(), any(), any());
+    }
+
+    @Test
+    void create_WithStartAfterEnd_ShouldThrowWithCorrectMessage() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(LocalDateTime.now().plusDays(2));
+        requestDto.setEnd(LocalDateTime.now().plusDays(1));
+
+        BadRequestException exception = assertThrows(BadRequestException.class,
+                () -> bookingService.create(userId, requestDto));
+
+        assertEquals("End date must be after start date", exception.getMessage());
+    }
+
+    @Test
+    void create_WithStartOneNanoSecondAfterEnd_ShouldThrowBadRequestException() {
+        LocalDateTime endTime = LocalDateTime.now().plusDays(1);
+        LocalDateTime startTime = endTime.plusNanos(1);
+
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(startTime);
+        requestDto.setEnd(endTime);
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    void create_ValidationOrder_ShouldCheckDateOrderBeforeOtherValidations() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(LocalDateTime.now().plusDays(2));
+        requestDto.setEnd(LocalDateTime.now().plusDays(1));
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    void create_WithDifferentTimePrecisions_ShouldHandleCorrectly() {
+        LocalDateTime baseTime = LocalDateTime.of(2023, 12, 25, 12, 0, 0);
+
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(baseTime.plusSeconds(1));
+        requestDto.setEnd(baseTime);
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
     }
 }

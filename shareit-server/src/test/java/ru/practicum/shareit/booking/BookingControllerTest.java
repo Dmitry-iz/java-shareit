@@ -7,6 +7,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.practicum.shareit.booking.dto.BookingDto;
+import ru.practicum.shareit.booking.dto.CreateBookingRequestDto;
+import ru.practicum.shareit.booking.exception.BookingAccessDeniedException;
+import ru.practicum.shareit.booking.exception.BookingAlreadyProcessedException;
+import ru.practicum.shareit.booking.exception.BookingOwnItemException;
 import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.service.BookingService;
 
@@ -220,5 +225,144 @@ class BookingControllerTest {
                         .header("X-Sharer-User-Id", 999L)
                         .param("approved", "true"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getById_MissingUserIdHeader_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(get("/bookings/{bookingId}", bookingId))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getById_InvalidBookingId_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(get("/bookings/invalid")
+                        .header("X-Sharer-User-Id", userId))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getAllByUser_AllStates_ShouldWork() throws Exception {
+        for (String state : List.of("ALL", "CURRENT", "PAST", "FUTURE", "WAITING", "REJECTED")) {
+            when(bookingService.getAllByUser(userId, state))
+                    .thenReturn(List.of(createBookingDto()));
+
+            mockMvc.perform(get("/bookings")
+                            .header("X-Sharer-User-Id", userId)
+                            .param("state", state))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void approve_AlreadyApproved_ShouldReturnBadRequest() throws Exception {
+        when(bookingService.approve(anyLong(), anyLong(), anyBoolean()))
+                .thenThrow(new BadRequestException("Booking already approved"));
+
+        mockMvc.perform(patch("/bookings/1")
+                        .header("X-Sharer-User-Id", userId)
+                        .param("approved", "true"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void create_StartInPast_ShouldReturnBadRequest() throws Exception {
+        CreateBookingRequestDto requestDto = createValidBookingRequest();
+        requestDto.setStart(LocalDateTime.now().minusDays(1));
+
+        when(bookingService.create(anyLong(), any(CreateBookingRequestDto.class)))
+                .thenThrow(new BadRequestException("Start date must be in future"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getAllByUser_NoBookings_ShouldReturnEmptyList() throws Exception {
+        when(bookingService.getAllByUser(anyLong(), eq("ALL")))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .param("state", "ALL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void invalidEndpoint_ShouldReturnNotFound() throws Exception {
+        mockMvc.perform(get("/bookings/invalid/endpoint")
+                        .header("X-Sharer-User-Id", userId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getById_AccessDenied_ShouldReturnForbidden() throws Exception {
+        when(bookingService.getById(anyLong(), anyLong()))
+                .thenThrow(new BookingAccessDeniedException("Access denied"));
+
+        mockMvc.perform(get("/bookings/999")
+                        .header("X-Sharer-User-Id", userId))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void create_ServerError_ShouldReturnInternalServerError() throws Exception {
+        CreateBookingRequestDto requestDto = createValidBookingRequest();
+
+        when(bookingService.create(anyLong(), any(CreateBookingRequestDto.class)))
+                .thenThrow(new BadRequestException("Unexpected error"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Unexpected error"));
+    }
+
+    @Test
+    void approve_AlreadyProcessed_ShouldReturnConflict() throws Exception {
+        when(bookingService.approve(anyLong(), anyLong(), anyBoolean()))
+                .thenThrow(new BookingAlreadyProcessedException("Already processed"));
+
+        mockMvc.perform(patch("/bookings/1")
+                        .header("X-Sharer-User-Id", userId)
+                        .param("approved", "true"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Already processed"));
+    }
+
+    @Test
+    void create_OwnItem_ShouldReturnForbidden() throws Exception {
+        CreateBookingRequestDto requestDto = createValidBookingRequest();
+
+        when(bookingService.create(anyLong(), any(CreateBookingRequestDto.class)))
+                .thenThrow(new BookingOwnItemException("Cannot book own item"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Cannot book own item"));
+    }
+
+    @Test
+    void create_InvalidRequest_ShouldReturnBadRequest() throws Exception {
+        CreateBookingRequestDto requestDto = createValidBookingRequest();
+
+        when(bookingService.create(anyLong(), any(CreateBookingRequestDto.class)))
+                .thenThrow(new BadRequestException("Invalid dates"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid dates"));
     }
 }

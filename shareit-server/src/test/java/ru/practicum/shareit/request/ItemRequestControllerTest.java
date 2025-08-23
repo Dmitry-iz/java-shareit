@@ -116,7 +116,6 @@ class ItemRequestControllerTest {
     void create_whenDescriptionIsBlank_shouldReturnBadRequest() throws Exception {
         ItemRequestDto invalidRequest = new ItemRequestDto("");
 
-        // Мокируем сервис, чтобы он бросил исключение
         when(itemRequestService.create(anyLong(), any(ItemRequestDto.class)))
                 .thenThrow(new BadRequestException("Description cannot be blank"));
 
@@ -140,3 +139,4 @@ class ItemRequestControllerTest {
                 .andExpect(status().isBadRequest());
     }
 }
+
