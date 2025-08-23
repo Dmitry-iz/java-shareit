@@ -10,7 +10,6 @@ import ru.practicum.shareit.user.model.User;
 
 import java.time.LocalDateTime;
 
-
 @Mapper(componentModel = "spring")
 public interface CommentMapper {
 

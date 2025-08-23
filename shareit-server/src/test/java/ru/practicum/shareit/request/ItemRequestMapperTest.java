@@ -18,15 +18,12 @@ class ItemRequestMapperTest {
 
     @Test
     void fromDto_shouldMapCorrectly() {
-        // Given
         ItemRequestDto dto = new ItemRequestDto("Need a drill");
         User requester = new User(1L, "User", "user@email.com");
         LocalDateTime created = LocalDateTime.now();
 
-        // When
         ItemRequest request = mapper.fromDto(dto, requester, created);
 
-        // Then
         assertThat(request.getDescription()).isEqualTo("Need a drill");
         assertThat(request.getRequester()).isEqualTo(requester);
         assertThat(request.getCreated()).isEqualTo(created);
@@ -34,13 +31,10 @@ class ItemRequestMapperTest {
 
     @Test
     void toSimpleDto_shouldMapCorrectly() {
-        // Given
         ItemRequest request = new ItemRequest(1L, "Need a drill", null, LocalDateTime.now(), List.of());
 
-        // When
         ItemRequestDto dto = mapper.toSimpleDto(request);
 
-        // Then
         assertThat(dto.getDescription()).isEqualTo("Need a drill");
     }
 

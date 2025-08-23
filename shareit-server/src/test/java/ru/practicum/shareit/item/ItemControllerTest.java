@@ -20,8 +20,11 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ItemController.class)
 class ItemControllerTest {
@@ -140,6 +143,43 @@ class ItemControllerTest {
                         .header("X-Sharer-User-Id", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void addComment_WithEmptyText_ShouldReturnBadRequest() throws Exception {
+        CommentDto comment = new CommentDto(null, "", null, null);
+
+        when(itemService.addComment(anyLong(), anyLong(), any(CommentDto.class)))
+                .thenThrow(new BadRequestException("Comment text cannot be empty"));
+
+        mockMvc.perform(post("/items/1/comment")
+                        .header("X-Sharer-User-Id", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(comment)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void addComment_UserNotBooked_ShouldReturnBadRequest() throws Exception {
+        CommentDto comment = new CommentDto(null, "Nice!", null, null);
+        when(itemService.addComment(anyLong(), anyLong(), any(CommentDto.class)))
+                .thenThrow(new BadRequestException("User has not booked this item"));
+
+        mockMvc.perform(post("/items/1/comment")
+                        .header("X-Sharer-User-Id", 999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(comment)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void addComment_MissingUserIdHeader_ShouldReturnBadRequest() throws Exception {
+        CommentDto comment = new CommentDto(null, "Nice!", null, null);
+
+        mockMvc.perform(post("/items/1/comment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(comment)))
                 .andExpect(status().isBadRequest());
     }
 }

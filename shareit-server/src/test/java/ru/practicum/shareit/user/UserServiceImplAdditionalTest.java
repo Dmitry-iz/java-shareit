@@ -20,9 +20,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplAdditionalTest {
@@ -131,7 +138,7 @@ class UserServiceImplAdditionalTest {
     void update_WithOnlyName_ShouldUpdateOnlyName() {
         UpdateUserRequestDto updateDto = new UpdateUserRequestDto();
         updateDto.setName("Updated Name");
-        updateDto.setEmail(null); // Email не обновляется
+        updateDto.setEmail(null);
 
         User existingUser = new User();
         existingUser.setId(1L);
@@ -141,7 +148,7 @@ class UserServiceImplAdditionalTest {
         User updatedUser = new User();
         updatedUser.setId(1L);
         updatedUser.setName("Updated Name");
-        updatedUser.setEmail("original@email.com"); // Email остался прежним
+        updatedUser.setEmail("original@email.com");
 
         UserDto expectedDto = new UserDto(1L, "Updated Name", "original@email.com");
 
@@ -154,16 +161,16 @@ class UserServiceImplAdditionalTest {
 
         assertNotNull(result);
         assertEquals("Updated Name", result.getName());
-        assertEquals("original@email.com", result.getEmail()); // Email не изменился
+        assertEquals("original@email.com", result.getEmail());
         verify(userRepository).findById(1L);
-        verify(userRepository, never()).findByEmail(anyString()); // findByEmail не вызывался для null email
+        verify(userRepository, never()).findByEmail(anyString());
         verify(userRepository).save(existingUser);
     }
 
     @Test
     void update_WithOnlyEmail_ShouldUpdateOnlyEmail() {
         UpdateUserRequestDto updateDto = new UpdateUserRequestDto();
-        updateDto.setName(null); // Name не обновляется
+        updateDto.setName(null);
         updateDto.setEmail("updated@email.com");
 
         User existingUser = new User();
@@ -173,13 +180,13 @@ class UserServiceImplAdditionalTest {
 
         User updatedUser = new User();
         updatedUser.setId(1L);
-        updatedUser.setName("Original Name"); // Name остался прежним
+        updatedUser.setName("Original Name");
         updatedUser.setEmail("updated@email.com");
 
         UserDto expectedDto = new UserDto(1L, "Original Name", "updated@email.com");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
-        when(userRepository.findByEmail("updated@email.com")).thenReturn(Optional.empty()); // Email свободен
+        when(userRepository.findByEmail("updated@email.com")).thenReturn(Optional.empty());
         doNothing().when(userMapper).updateFromDto(updateDto, existingUser);
         when(userRepository.save(existingUser)).thenReturn(updatedUser);
         when(userMapper.toUserDto(updatedUser)).thenReturn(expectedDto);
@@ -187,7 +194,7 @@ class UserServiceImplAdditionalTest {
         UserDto result = userService.update(1L, updateDto);
 
         assertNotNull(result);
-        assertEquals("Original Name", result.getName()); // Name не изменился
+        assertEquals("Original Name", result.getName());
         assertEquals("updated@email.com", result.getEmail());
         verify(userRepository).findById(1L);
         verify(userRepository).findByEmail("updated@email.com");
@@ -198,7 +205,7 @@ class UserServiceImplAdditionalTest {
     void update_WithEmptyUpdate_ShouldReturnOriginalUser() {
         UpdateUserRequestDto updateDto = new UpdateUserRequestDto();
         updateDto.setName(null);
-        updateDto.setEmail(null); // Пустое обновление
+        updateDto.setEmail(null);
 
         User existingUser = new User();
         existingUser.setId(1L);

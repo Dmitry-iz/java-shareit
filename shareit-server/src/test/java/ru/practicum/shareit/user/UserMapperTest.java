@@ -8,7 +8,10 @@ import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.mapper.UserMapper;
 import ru.practicum.shareit.user.model.User;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class UserMapperTest {
 
@@ -25,7 +28,7 @@ class UserMapperTest {
         assertNotNull(user);
         assertEquals("Test User", user.getName());
         assertEquals("test@email.com", user.getEmail());
-        assertNull(user.getId()); // ID должен быть null при создании
+        assertNull(user.getId());
     }
 
     @Test
@@ -62,13 +65,13 @@ class UserMapperTest {
 
         UpdateUserRequestDto updateDto = new UpdateUserRequestDto();
         updateDto.setName("Updated Name");
-        updateDto.setEmail(null); // Email не обновляется
+        updateDto.setEmail(null);
 
         mapper.updateFromDto(updateDto, existingUser);
 
-        assertEquals("Updated Name", existingUser.getName()); // Name обновлен
-        assertEquals("original@email.com", existingUser.getEmail()); // Email остался прежним
-        assertEquals(1L, existingUser.getId()); // ID не изменился
+        assertEquals("Updated Name", existingUser.getName());
+        assertEquals("original@email.com", existingUser.getEmail());
+        assertEquals(1L, existingUser.getId());
     }
 
     @Test
@@ -99,5 +102,47 @@ class UserMapperTest {
         assertEquals("Original Name", existingUser.getName());
         assertEquals("original@email.com", existingUser.getEmail());
         assertEquals(1L, existingUser.getId());
+    }
+
+    @Test
+    void fromCreateDto_ShouldMapCorrectly() {
+        CreateUserRequestDto dto = new CreateUserRequestDto("John Doe", "john@email.com");
+        User user = mapper.fromCreateDto(dto);
+
+        assertThat(user).isNotNull();
+        assertThat(user.getName()).isEqualTo("John Doe");
+        assertThat(user.getEmail()).isEqualTo("john@email.com");
+        assertThat(user.getId()).isNull();
+    }
+
+    @Test
+    void fromUpdateDto_ShouldMapOnlyNonNullFields() {
+        UpdateUserRequestDto dto = new UpdateUserRequestDto();
+        dto.setName("Jane Doe");
+        dto.setEmail(null);
+
+        User existingUser = new User();
+        existingUser.setId(1L);
+        existingUser.setName("Old Name");
+        existingUser.setEmail("old@email.com");
+
+        mapper.updateFromDto(dto, existingUser);
+
+        assertThat(existingUser.getName()).isEqualTo("Jane Doe");
+        assertThat(existingUser.getEmail()).isEqualTo("old@email.com");
+    }
+
+    @Test
+    void toUserDto_ShouldMapCorrectly() {
+        User user = new User();
+        user.setId(1L);
+        user.setName("John Doe");
+        user.setEmail("john@email.com");
+
+        UserDto dto = mapper.toUserDto(user);
+
+        assertThat(dto.getId()).isEqualTo(1L);
+        assertThat(dto.getName()).isEqualTo("John Doe");
+        assertThat(dto.getEmail()).isEqualTo("john@email.com");
     }
 }

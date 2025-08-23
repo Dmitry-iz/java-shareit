@@ -56,4 +56,26 @@ class BookingRequestDtoJsonTest {
         assertThat(result.getStart()).isNotNull();
         assertThat(result.getEnd()).isNotNull();
     }
+
+    @Test
+    void testSerializeWithNullFields() throws Exception {
+        CreateBookingRequestDto dto = new CreateBookingRequestDto();
+        dto.setItemId(null);
+        dto.setStart(LocalDateTime.of(2023, 12, 25, 10, 0));
+        dto.setEnd(LocalDateTime.of(2023, 12, 26, 10, 0));
+
+        String jsonStr = json.write(dto).getJson();
+
+        assertThat(jsonStr).contains("\"start\":\"2023-12-25T10:00:00\"");
+        assertThat(jsonStr).contains("\"end\":\"2023-12-26T10:00:00\"");
+    }
+
+    @Test
+    void testDeserializeWithMissingItemId() throws Exception {
+        String content = "{\"start\":\"2023-12-25T10:00:00\",\"end\":\"2023-12-26T10:00:00\"}";
+
+        CreateBookingRequestDto dto = objectMapper.readValue(content, CreateBookingRequestDto.class);
+
+        assertThat(dto.getItemId()).isNull();
+    }
 }

@@ -8,6 +8,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
 import ru.practicum.shareit.booking.repository.BookingRepository;
+import ru.practicum.shareit.exception.BadRequestException;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.CreateItemRequestDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.UpdateItemRequestDto;
@@ -30,9 +32,13 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ItemServiceImplTest {
@@ -130,7 +136,6 @@ class ItemServiceImplTest {
     @Test
     void getItemById_shouldReturnItem() {
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-        // Мокируем вызовы bookingRepository для владельца
         when(bookingRepository.findByItemIdAndEndBefore(anyLong(), any(LocalDateTime.class), any(Sort.class)))
                 .thenReturn(Collections.emptyList());
         when(bookingRepository.findByItemIdAndStartAfter(anyLong(), any(LocalDateTime.class), any(Sort.class)))
@@ -154,7 +159,7 @@ class ItemServiceImplTest {
         when(itemMapper.toDtoWithBookings(item, null, null, Collections.emptyList()))
                 .thenReturn(itemDto);
 
-        ItemDto result = itemService.getById(1L, 2L); // Другой пользователь
+        ItemDto result = itemService.getById(1L, 2L);
 
         assertThat(result).isEqualTo(itemDto);
         verify(bookingRepository, never()).findByItemIdAndEndBefore(anyLong(), any(LocalDateTime.class), any(Sort.class));
@@ -197,5 +202,34 @@ class ItemServiceImplTest {
 
         assertThat(result).isEmpty();
         verifyNoInteractions(itemRepository);
+    }
+
+    @Test
+    void addComment_UserHasNotBooked_ShouldThrow() {
+        when(userRepository.findById(anyLong())).thenReturn(Optional.of(otherUser));
+        when(itemRepository.findById(anyLong())).thenReturn(Optional.of(item));
+        when(bookingRepository.existsByItemIdAndBookerIdAndEndBefore(anyLong(), anyLong(), any(LocalDateTime.class)))
+                .thenReturn(false);
+
+        assertThrows(BadRequestException.class, () ->
+                itemService.addComment(999L, item.getId(), new CommentDto(null, "text", null, null))
+        );
+    }
+
+    @Test
+    void getById_NonExistentItem_ShouldThrow() {
+        when(itemRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        assertThrows(ItemNotFoundException.class, () ->
+                itemService.getById(999L, 1L));
+    }
+
+    @Test
+    void updateItem_NotOwner_ShouldThrow() {
+        when(userRepository.findById(2L)).thenReturn(Optional.of(otherUser));
+        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
+
+        assertThrows(ItemNotOwnedByUserException.class, () ->
+                itemService.update(2L, 1L, updateItemDto));
     }
 }

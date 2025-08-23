@@ -5,7 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
+import org.springframework.data.domain.Sort;
 import ru.practicum.shareit.booking.exception.BookingAccessDeniedException;
 import ru.practicum.shareit.booking.exception.BookingAlreadyProcessedException;
 import ru.practicum.shareit.booking.exception.BookingOwnItemException;
@@ -27,10 +27,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BookingServiceImplTest {
@@ -345,5 +352,248 @@ class BookingServiceImplTest {
         dto.setItem(item);
 
         return dto;
+    }
+
+    @Test
+    void create_WithNullStartDate_ShouldThrowBadRequestException() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(null);
+        requestDto.setEnd(LocalDateTime.now().plusDays(2));
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+        verify(bookingRepository, never()).existsApprovedBookingsForItemBetweenDates(anyLong(), any(), any());
+    }
+
+    @Test
+    void create_WithNullEndDate_ShouldThrowBadRequestException() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(LocalDateTime.now().plusDays(1));
+        requestDto.setEnd(null); // Null end date
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+        verify(bookingRepository, never()).existsApprovedBookingsForItemBetweenDates(anyLong(), any(), any());
+    }
+
+    @Test
+    void create_WithStartInPast_ShouldThrowBadRequestException() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(LocalDateTime.now().minusDays(1)); // Past start
+        requestDto.setEnd(LocalDateTime.now().plusDays(1));
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+        verify(bookingRepository, never()).existsApprovedBookingsForItemBetweenDates(anyLong(), any(), any());
+    }
+
+    @Test
+    void create_WithEqualStartAndEnd_ShouldThrowBadRequestException() {
+        LocalDateTime now = LocalDateTime.now();
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(itemId);
+        requestDto.setStart(now);
+        requestDto.setEnd(now);
+
+        assertThrows(BadRequestException.class, () -> bookingService.create(userId, requestDto));
+
+        verify(userRepository, never()).findById(anyLong());
+        verify(itemRepository, never()).findById(anyLong());
+        verify(bookingRepository, never()).existsApprovedBookingsForItemBetweenDates(anyLong(), any(), any());
+    }
+
+    @Test
+    void getAllByOwner_WithDifferentStates_ShouldReturnFilteredResults() {
+        User owner = createUser(userId, "owner@email.com");
+        LocalDateTime now = LocalDateTime.now();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(owner));
+
+        when(bookingRepository.findByItemOwnerIdAndStatus(eq(userId), eq(BookingStatus.WAITING), any(Sort.class)))
+                .thenReturn(List.of(createBooking(createUser(2L, "booker@email.com"), createAvailableItem(owner))));
+
+        List<BookingDto> waitingResult = bookingService.getAllByOwner(userId, "WAITING");
+        assertFalse(waitingResult.isEmpty());
+
+        when(bookingRepository.findByItemOwnerIdAndStatus(eq(userId), eq(BookingStatus.REJECTED), any(Sort.class)))
+                .thenReturn(List.of(createBooking(createUser(2L, "booker@email.com"), createAvailableItem(owner))));
+
+        List<BookingDto> rejectedResult = bookingService.getAllByOwner(userId, "REJECTED");
+        assertFalse(rejectedResult.isEmpty());
+
+        when(bookingRepository.findByItemOwnerIdOrderByStartDesc(userId))
+                .thenReturn(List.of(createBooking(createUser(2L, "booker@email.com"), createAvailableItem(owner))));
+
+        List<BookingDto> invalidResult = bookingService.getAllByOwner(userId, "INVALID_STATE");
+        assertFalse(invalidResult.isEmpty());
+    }
+
+    @Test
+    void getAllByOwner_WithEmptyResults_ShouldReturnEmptyList() {
+        User owner = createUser(userId, "owner@email.com");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(owner));
+        when(bookingRepository.findByItemOwnerIdOrderByStartDesc(userId)).thenReturn(List.of());
+
+        List<BookingDto> result = bookingService.getAllByOwner(userId, "ALL");
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getAllByOwner_WithFutureState_ShouldReturnFutureBookings() {
+        User owner = createUser(userId, "owner@email.com");
+        LocalDateTime now = LocalDateTime.now();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(owner));
+        when(bookingRepository.findByItemOwnerIdAndStartAfter(eq(userId), any(LocalDateTime.class), any(Sort.class)))
+                .thenReturn(List.of(createBooking(createUser(2L, "booker@email.com"), createAvailableItem(owner))));
+
+        List<BookingDto> result = bookingService.getAllByOwner(userId, "FUTURE");
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void getAllByOwner_WithPastState_ShouldReturnPastBookings() {
+        User owner = createUser(userId, "owner@email.com");
+        LocalDateTime now = LocalDateTime.now();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(owner));
+        when(bookingRepository.findByItemOwnerIdAndEndBefore(eq(userId), any(LocalDateTime.class), any(Sort.class)))
+                .thenReturn(List.of(createBooking(createUser(2L, "booker@email.com"), createAvailableItem(owner))));
+
+        List<BookingDto> result = bookingService.getAllByOwner(userId, "PAST");
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void getAllByOwner_WithCurrentState_ShouldReturnCurrentBookings() {
+        User owner = createUser(userId, "owner@email.com");
+        LocalDateTime now = LocalDateTime.now();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(owner));
+        when(bookingRepository.findByItemOwnerIdAndStartBeforeAndEndAfter(
+                eq(userId), any(LocalDateTime.class), any(LocalDateTime.class), any(Sort.class)))
+                .thenReturn(List.of(createBooking(createUser(2L, "booker@email.com"), createAvailableItem(owner))));
+
+        List<BookingDto> result = bookingService.getAllByOwner(userId, "CURRENT");
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void getAllByUser_WithDifferentStates_ShouldReturnFilteredResults() {
+        User booker = createUser(userId, "booker@email.com");
+        LocalDateTime now = LocalDateTime.now();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(booker));
+
+        when(bookingRepository.findByBookerIdAndStatus(eq(userId), eq(BookingStatus.WAITING), any(Sort.class)))
+                .thenReturn(List.of(createBooking(booker, createAvailableItem(createUser(ownerId, "owner@email.com")))));
+
+        List<BookingDto> waitingResult = bookingService.getAllByUser(userId, "WAITING");
+        assertFalse(waitingResult.isEmpty());
+
+        when(bookingRepository.findByBookerIdAndStatus(eq(userId), eq(BookingStatus.REJECTED), any(Sort.class)))
+                .thenReturn(List.of(createBooking(booker, createAvailableItem(createUser(ownerId, "owner@email.com")))));
+
+        List<BookingDto> rejectedResult = bookingService.getAllByUser(userId, "REJECTED");
+        assertFalse(rejectedResult.isEmpty());
+
+        when(bookingRepository.findByBookerIdAndStartAfter(eq(userId), any(LocalDateTime.class), any(Sort.class)))
+                .thenReturn(List.of(createBooking(booker, createAvailableItem(createUser(ownerId, "owner@email.com")))));
+
+        List<BookingDto> futureResult = bookingService.getAllByUser(userId, "FUTURE");
+        assertFalse(futureResult.isEmpty());
+
+        when(bookingRepository.findByBookerIdAndEndBefore(eq(userId), any(LocalDateTime.class), any(Sort.class)))
+                .thenReturn(List.of(createBooking(booker, createAvailableItem(createUser(ownerId, "owner@email.com")))));
+
+        List<BookingDto> pastResult = bookingService.getAllByUser(userId, "PAST");
+        assertFalse(pastResult.isEmpty());
+
+        when(bookingRepository.findByBookerIdAndStartBeforeAndEndAfter(
+                eq(userId), any(LocalDateTime.class), any(LocalDateTime.class), any(Sort.class)))
+                .thenReturn(List.of(createBooking(booker, createAvailableItem(createUser(ownerId, "owner@email.com")))));
+
+        List<BookingDto> currentResult = bookingService.getAllByUser(userId, "CURRENT");
+        assertFalse(currentResult.isEmpty());
+    }
+
+    @Test
+    void cancel_AlreadyProcessed_ThrowsException() {
+        User owner = createUser(ownerId, "owner@email.com");
+        User booker = createUser(userId, "booker@email.com");
+        Item item = createAvailableItem(owner);
+        Booking booking = createBooking(booker, item);
+        booking.setStatus(BookingStatus.APPROVED);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        assertThrows(BookingAlreadyProcessedException.class,
+                () -> bookingService.cancel(userId, bookingId));
+    }
+
+    @Test
+    void approve_WithFalse_ShouldRejectBooking() {
+        User owner = createUser(ownerId, "owner@email.com");
+        User booker = createUser(userId, "booker@email.com");
+        Item item = createAvailableItem(owner);
+        Booking booking = createBooking(booker, item);
+        BookingDto expectedDto = createBookingDto();
+        expectedDto.setStatus(BookingStatus.REJECTED);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenReturn(booking);
+        when(bookingMapper.toDto(any())).thenReturn(expectedDto);
+
+        BookingDto result = bookingService.approve(ownerId, bookingId, false);
+
+        assertNotNull(result);
+        assertEquals(BookingStatus.REJECTED, result.getStatus());
+        verify(bookingRepository).save(booking);
+    }
+
+    @Test
+    void getAllByUser_WithInvalidState_ShouldReturnAll() {
+        User booker = createUser(userId, "booker@email.com");
+        List<Booking> bookings = List.of(createBooking(booker, createAvailableItem(createUser(ownerId, "owner@email.com"))));
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(booker));
+        when(bookingRepository.findByBookerIdOrderByStartDesc(userId)).thenReturn(bookings);
+        when(bookingMapper.toDto(any())).thenReturn(createBookingDto());
+
+        List<BookingDto> result = bookingService.getAllByUser(userId, "INVALID_STATE");
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void getAllByUser_WithEmptyResults_ShouldReturnEmptyList() {
+        User booker = createUser(userId, "booker@email.com");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(booker));
+        when(bookingRepository.findByBookerIdOrderByStartDesc(userId)).thenReturn(List.of());
+
+        List<BookingDto> result = bookingService.getAllByUser(userId, "ALL");
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 }

@@ -62,4 +62,32 @@ class BookingDtoJsonTest {
         assertThat(result.getItem().getId()).isEqualTo(3L);
         assertThat(result.getItem().getName()).isEqualTo("Test Item");
     }
+
+    @Test
+    void testSerializeWithNullFields() throws Exception {
+        BookingDto dto = new BookingDto();
+        dto.setId(1L);
+        dto.setStart(LocalDateTime.of(2023, 12, 25, 10, 0));
+        dto.setEnd(LocalDateTime.of(2023, 12, 26, 10, 0));
+        dto.setStatus(BookingStatus.WAITING);
+        dto.setBooker(null);
+        dto.setItem(null);
+
+        String jsonStr = json.write(dto).getJson();
+
+        assertThat(jsonStr).contains("\"id\":1");
+        assertThat(jsonStr).contains("\"status\":\"WAITING\"");
+        // Поля booker и item могут быть null, проверка что сериализация прошла без ошибок
+    }
+
+    @Test
+    void testDeserializeWithDifferentStatus() throws Exception {
+        String content = "{\"id\":1,\"start\":\"2023-12-25T10:00:00\",\"end\":\"2023-12-26T10:00:00\"," +
+                "\"status\":\"CANCELLED\",\"booker\":{\"id\":2,\"name\":\"John\"}," +
+                "\"item\":{\"id\":3,\"name\":\"Item\"}}";
+
+        BookingDto result = objectMapper.readValue(content, BookingDto.class);
+
+        assertThat(result.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+    }
 }

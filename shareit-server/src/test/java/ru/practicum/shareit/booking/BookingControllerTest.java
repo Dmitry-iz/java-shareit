@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ru.practicum.shareit.exception.BadRequestException;
+import ru.practicum.shareit.item.exception.ItemNotOwnedByUserException;
 
 @WebMvcTest(BookingController.class)
 class BookingControllerTest {
@@ -40,6 +41,34 @@ class BookingControllerTest {
 
     private final Long userId = 1L;
     private final Long bookingId = 1L;
+
+    private CreateBookingRequestDto createValidBookingRequest() {
+        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
+        requestDto.setItemId(1L);
+        requestDto.setStart(LocalDateTime.now().plusDays(1));
+        requestDto.setEnd(LocalDateTime.now().plusDays(2));
+        return requestDto;
+    }
+
+    private BookingDto createBookingDto() {
+        BookingDto dto = new BookingDto();
+        dto.setId(1L);
+        dto.setStart(LocalDateTime.now().plusDays(1));
+        dto.setEnd(LocalDateTime.now().plusDays(2));
+        dto.setStatus(BookingStatus.WAITING);
+
+        BookingDto.BookerDto booker = new BookingDto.BookerDto();
+        booker.setId(2L);
+        booker.setName("Booker Name");
+        dto.setBooker(booker);
+
+        BookingDto.ItemDto item = new BookingDto.ItemDto();
+        item.setId(1L);
+        item.setName("Test Item");
+        dto.setItem(item);
+
+        return dto;
+    }
 
     @Test
     void create_ValidRequest_ReturnsBooking() throws Exception {
@@ -130,42 +159,13 @@ class BookingControllerTest {
                 .andExpect(jsonPath("$[0].id").value(bookingDto.getId()));
     }
 
-    private CreateBookingRequestDto createValidBookingRequest() {
-        CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
-        requestDto.setItemId(1L);
-        requestDto.setStart(LocalDateTime.now().plusDays(1));
-        requestDto.setEnd(LocalDateTime.now().plusDays(2));
-        return requestDto;
-    }
-
-    private BookingDto createBookingDto() {
-        BookingDto dto = new BookingDto();
-        dto.setId(1L);
-        dto.setStart(LocalDateTime.now().plusDays(1));
-        dto.setEnd(LocalDateTime.now().plusDays(2));
-        dto.setStatus(BookingStatus.WAITING);
-
-        BookingDto.BookerDto booker = new BookingDto.BookerDto();
-        booker.setId(2L);
-        booker.setName("Booker Name");
-        dto.setBooker(booker);
-
-        BookingDto.ItemDto item = new BookingDto.ItemDto();
-        item.setId(1L);
-        item.setName("Test Item");
-        dto.setItem(item);
-
-        return dto;
-    }
-
     @Test
     void create_InvalidDates_ReturnsBadRequest() throws Exception {
         CreateBookingRequestDto requestDto = new CreateBookingRequestDto();
         requestDto.setItemId(1L);
         requestDto.setStart(LocalDateTime.now().plusDays(2));
-        requestDto.setEnd(LocalDateTime.now().plusDays(1)); // End before start
+        requestDto.setEnd(LocalDateTime.now().plusDays(1));
 
-        // Мокируем сервис, чтобы он бросил исключение, которое будет обработано в ErrorHandler
         when(bookingService.create(anyLong(), any(CreateBookingRequestDto.class)))
                 .thenThrow(new BadRequestException("End date must be after start date"));
 
@@ -178,7 +178,6 @@ class BookingControllerTest {
 
     @Test
     void getAllByUser_InvalidState_ReturnsBadRequest() throws Exception {
-        // Мокируем сервис, чтобы он бросил исключение для невалидного состояния
         when(bookingService.getAllByUser(anyLong(), eq("INVALID_STATE")))
                 .thenThrow(new BadRequestException("Unknown state: INVALID_STATE"));
 
@@ -186,5 +185,40 @@ class BookingControllerTest {
                         .header("X-Sharer-User-Id", userId)
                         .param("state", "INVALID_STATE"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createBooking_MissingFields_ShouldReturnBadRequest() throws Exception {
+        CreateBookingRequestDto dto = new CreateBookingRequestDto();
+        dto.setItemId(null);
+        dto.setStart(null);
+        dto.setEnd(null);
+
+        when(bookingService.create(anyLong(), any())).thenThrow(new BadRequestException("Start and end dates must be provided"));
+
+        mockMvc.perform(post("/bookings")
+                        .header("X-Sharer-User-Id", 1L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void approve_InvalidStatus_ShouldReturnBadRequest() throws Exception {
+        mockMvc.perform(patch("/bookings/1")
+                        .header("X-Sharer-User-Id", 1L)
+                        .param("approved", "notBoolean"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void approve_NotOwner_ShouldReturnForbidden() throws Exception {
+        when(bookingService.approve(anyLong(), anyLong(), anyBoolean()))
+                .thenThrow(new ItemNotOwnedByUserException("User is not the owner"));
+
+        mockMvc.perform(patch("/bookings/1")
+                        .header("X-Sharer-User-Id", 999L)
+                        .param("approved", "true"))
+                .andExpect(status().isForbidden());
     }
 }

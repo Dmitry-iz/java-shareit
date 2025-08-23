@@ -20,8 +20,12 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ru.practicum.shareit.exception.BadRequestException;
 
@@ -56,10 +60,8 @@ class UserControllerTest {
 
     @Test
     void getAllUsers_shouldReturnListOfUsers() throws Exception {
-        // Arrange
         when(userService.getAll()).thenReturn(List.of(userDto));
 
-        // Act & Assert
         mockMvc.perform(get("/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1L))
@@ -69,10 +71,8 @@ class UserControllerTest {
 
     @Test
     void getUserById_shouldReturnUser() throws Exception {
-        // Arrange
         when(userService.getById(1L)).thenReturn(userDto);
 
-        // Act & Assert
         mockMvc.perform(get("/users/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L))
@@ -82,11 +82,9 @@ class UserControllerTest {
 
     @Test
     void getUserById_withNonExistentId_shouldReturnNotFound() throws Exception {
-        // Arrange
         when(userService.getById(999L))
                 .thenThrow(new UserNotFoundException("User not found"));
 
-        // Act & Assert
         mockMvc.perform(get("/users/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("User not found"));
@@ -94,10 +92,8 @@ class UserControllerTest {
 
     @Test
     void createUser_shouldCreateUserSuccessfully() throws Exception {
-        // Arrange
         when(userService.create(any(CreateUserRequestDto.class))).thenReturn(userDto);
 
-        // Act & Assert
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createUserRequestDto)))
@@ -110,10 +106,9 @@ class UserControllerTest {
     @Test
     void createUser_withInvalidData_shouldReturnBadRequest() throws Exception {
         CreateUserRequestDto invalidUser = new CreateUserRequestDto();
-        invalidUser.setName(""); // Empty name
-        invalidUser.setEmail("invalid-email"); // Invalid email
+        invalidUser.setName("");
+        invalidUser.setEmail("invalid-email");
 
-        // Мокируем сервис, чтобы он бросил исключение
         when(userService.create(any(CreateUserRequestDto.class)))
                 .thenThrow(new BadRequestException("Validation failed"));
 
@@ -125,11 +120,9 @@ class UserControllerTest {
 
     @Test
     void createUser_withDuplicateEmail_shouldReturnConflict() throws Exception {
-        // Arrange
         when(userService.create(any(CreateUserRequestDto.class)))
                 .thenThrow(new UserAlreadyExistsException("Email already exists"));
 
-        // Act & Assert
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createUserRequestDto)))
@@ -139,11 +132,9 @@ class UserControllerTest {
 
     @Test
     void updateUser_shouldUpdateUserSuccessfully() throws Exception {
-        // Arrange
         UserDto updatedUser = new UserDto(1L, "Updated User", "updated@email.com");
         when(userService.update(anyLong(), any(UpdateUserRequestDto.class))).thenReturn(updatedUser);
 
-        // Act & Assert
         mockMvc.perform(patch("/users/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateUserRequestDto)))
@@ -155,11 +146,9 @@ class UserControllerTest {
 
     @Test
     void updateUser_withNonExistentId_shouldReturnNotFound() throws Exception {
-        // Arrange
         when(userService.update(anyLong(), any(UpdateUserRequestDto.class)))
                 .thenThrow(new UserNotFoundException("User not found"));
 
-        // Act & Assert
         mockMvc.perform(patch("/users/999")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateUserRequestDto)))
@@ -169,11 +158,9 @@ class UserControllerTest {
 
     @Test
     void updateUser_withDuplicateEmail_shouldReturnConflict() throws Exception {
-        // Arrange
         when(userService.update(anyLong(), any(UpdateUserRequestDto.class)))
                 .thenThrow(new UserAlreadyExistsException("Email already exists"));
 
-        // Act & Assert
         mockMvc.perform(patch("/users/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateUserRequestDto)))
@@ -183,20 +170,16 @@ class UserControllerTest {
 
     @Test
     void deleteUser_shouldDeleteUserSuccessfully() throws Exception {
-        // Arrange
         doNothing().when(userService).delete(1L);
 
-        // Act & Assert
         mockMvc.perform(delete("/users/1"))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     void deleteUser_withNonExistentId_shouldReturnNotFound() throws Exception {
-        // Arrange
         doThrow(new UserNotFoundException("User not found")).when(userService).delete(999L);
 
-        // Act & Assert
         mockMvc.perform(delete("/users/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("User not found"));

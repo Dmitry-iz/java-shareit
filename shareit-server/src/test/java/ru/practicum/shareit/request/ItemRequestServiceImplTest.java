@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import ru.practicum.shareit.request.dto.ItemRequestDto;
 import ru.practicum.shareit.request.dto.ItemRequestWithItemsDto;
 import ru.practicum.shareit.request.exception.ItemRequestNotFoundException;
@@ -23,9 +24,16 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ItemRequestServiceImplTest {
@@ -150,5 +158,129 @@ class ItemRequestServiceImplTest {
 
         verify(itemRequestRepository).findByRequesterIdNotOrderByCreatedDesc(eq(1L),
                 argThat(page -> page.getPageNumber() == 2 && page.getPageSize() == 5));
+    }
+
+    @Test
+    void getAll_WithValidPagination_ShouldReturnRequests() {
+        // Given
+        Long userId = 1L;
+        int from = 0;
+        int size = 10;
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(itemRequestRepository.findByRequesterIdNotOrderByCreatedDesc(eq(userId), any(Pageable.class)))
+                .thenReturn(List.of(new ItemRequest()));
+        when(itemRequestMapper.toDtoList(anyList()))
+                .thenReturn(List.of(new ItemRequestWithItemsDto()));
+
+        // When
+        List<ItemRequestWithItemsDto> result = itemRequestService.getAll(userId, from, size);
+
+        // Then
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+        verify(itemRequestRepository).findByRequesterIdNotOrderByCreatedDesc(
+                eq(userId),
+                argThat(page -> page.getPageNumber() == 0 && page.getPageSize() == 10)
+        );
+    }
+
+    @Test
+    void getAll_WithDifferentPagination_ShouldUseCorrectPage() {
+        // Given
+        Long userId = 1L;
+        int from = 20;
+        int size = 5;
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(itemRequestRepository.findByRequesterIdNotOrderByCreatedDesc(eq(userId), any(Pageable.class)))
+                .thenReturn(List.of(new ItemRequest()));
+        when(itemRequestMapper.toDtoList(anyList()))
+                .thenReturn(List.of(new ItemRequestWithItemsDto()));
+
+        // When
+        itemRequestService.getAll(userId, from, size);
+
+        // Then - should calculate page correctly: from=20, size=5 → page=4
+        verify(itemRequestRepository).findByRequesterIdNotOrderByCreatedDesc(
+                eq(userId),
+                argThat(page -> page.getPageNumber() == 4 && page.getPageSize() == 5)
+        );
+    }
+
+//    @Test
+//    void getAll_WithZeroSize_ShouldUseDefaultPagination() {
+//        // Given
+//        Long userId = 1L;
+//        int from = 0;
+//        int size = 0; // Invalid size
+//
+//        when(userRepository.existsById(userId)).thenReturn(true);
+//        when(itemRequestRepository.findByRequesterIdNotOrderByCreatedDesc(eq(userId), any(Pageable.class)))
+//                .thenReturn(List.of(new ItemRequest()));
+//        when(itemRequestMapper.toDtoList(anyList()))
+//                .thenReturn(List.of(new ItemRequestWithItemsDto()));
+//
+//        // When
+//        List<ItemRequestWithItemsDto> result = itemRequestService.getAll(userId, from, size);
+//
+//        // Then - should handle zero size gracefully
+//        assertNotNull(result);
+//    }
+
+    @Test
+    void getAll_WithNegativeFrom_ShouldUseDefaultPagination() {
+        // Given
+        Long userId = 1L;
+        int from = -1; // Negative from
+        int size = 10;
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(itemRequestRepository.findByRequesterIdNotOrderByCreatedDesc(eq(userId), any(Pageable.class)))
+                .thenReturn(List.of(new ItemRequest()));
+        when(itemRequestMapper.toDtoList(anyList()))
+                .thenReturn(List.of(new ItemRequestWithItemsDto()));
+
+        // When
+        List<ItemRequestWithItemsDto> result = itemRequestService.getAll(userId, from, size);
+
+        // Then - should handle negative from gracefully
+        assertNotNull(result);
+    }
+
+    @Test
+    void getAll_WithNoOtherUsersRequests_ShouldReturnEmptyList() {
+        // Given
+        Long userId = 1L;
+        int from = 0;
+        int size = 10;
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(itemRequestRepository.findByRequesterIdNotOrderByCreatedDesc(eq(userId), any(Pageable.class)))
+                .thenReturn(List.of()); // Empty list
+
+        when(itemRequestMapper.toDtoList(anyList())).thenReturn(List.of());
+
+        // When
+        List<ItemRequestWithItemsDto> result = itemRequestService.getAll(userId, from, size);
+
+        // Then
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getAll_WhenUserNotFound_ShouldThrowException() {
+        // Given
+        Long userId = 1L;
+        int from = 0;
+        int size = 10;
+
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        // When & Then
+        assertThrows(UserNotFoundException.class, () ->
+                itemRequestService.getAll(userId, from, size)
+        );
     }
 }

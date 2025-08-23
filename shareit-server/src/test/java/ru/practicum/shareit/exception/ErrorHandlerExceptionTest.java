@@ -3,17 +3,26 @@ package ru.practicum.shareit.exception;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import ru.practicum.shareit.booking.exception.BookingAccessDeniedException;
 import ru.practicum.shareit.booking.exception.BookingAlreadyProcessedException;
+import ru.practicum.shareit.booking.exception.BookingOwnItemException;
 import ru.practicum.shareit.item.exception.ItemNotFoundException;
 import ru.practicum.shareit.item.exception.ItemNotOwnedByUserException;
 import ru.practicum.shareit.user.exception.UserAlreadyExistsException;
 import ru.practicum.shareit.user.exception.UserNotFoundException;
+import org.springframework.validation.BindingResult;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ErrorHandlerExceptionTest {
 
@@ -95,12 +104,97 @@ class ErrorHandlerExceptionTest {
         when(ex.getName()).thenReturn("param");
         when(ex.getRequiredType()).thenReturn((Class) Long.class);
 
-        // Этот метод должен быть в вашем ErrorHandlerException
-        // Если его нет, добавьте его или используйте существующий метод
         ResponseEntity<ErrorResponseException> response = errorHandler.handleBadRequestExceptions(
                 new BadRequestException("Parameter 'param' should be of type Long"));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertTrue(response.getBody().getError().contains("param"));
+    }
+
+    @Test
+    void handleValidationExceptions_WithMultipleFieldErrors_ShouldReturnFormattedMessage() {
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        FieldError fieldError1 = new FieldError("object", "name", "Name is required");
+        FieldError fieldError2 = new FieldError("object", "email", "Email is invalid");
+
+        when(ex.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError1, fieldError2));
+
+        ResponseEntity<ErrorResponseException> response = errorHandler.handleValidationExceptions(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().getError().contains("name: Name is required"));
+        assertTrue(response.getBody().getError().contains("email: Email is invalid"));
+        assertTrue(response.getBody().getError().contains("; "));
+    }
+
+    @Test
+    void handleValidationExceptions_WithSingleFieldError_ShouldReturnSingleMessage() {
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        FieldError fieldError = new FieldError("object", "name", "Name is required");
+
+        when(ex.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError));
+
+        ResponseEntity<ErrorResponseException> response = errorHandler.handleValidationExceptions(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("name: Name is required", response.getBody().getError());
+    }
+
+    @Test
+    void handleValidationExceptions_WithNoFieldErrors_ShouldReturnEmptyMessage() {
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+
+        when(ex.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(List.of());
+
+        ResponseEntity<ErrorResponseException> response = errorHandler.handleValidationExceptions(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("", response.getBody().getError());
+    }
+
+    @Test
+    void handleBookingOwnItemException_ShouldReturnForbidden() {
+        BookingOwnItemException ex = new BookingOwnItemException("Cannot book own item");
+
+        ResponseEntity<ErrorResponseException> response = errorHandler.handleForbiddenExceptions(ex);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals("Cannot book own item", response.getBody().getError());
+    }
+
+    @Test
+    void handleRuntimeException_ShouldReturnInternalServerError() {
+        RuntimeException ex = new RuntimeException("Unexpected error");
+    }
+
+    @Test
+    void handleIllegalArgumentException_ShouldReturnBadRequest() {
+        IllegalArgumentException ex = new IllegalArgumentException("Invalid argument");
+    }
+
+    @Test
+    void errorResponseException_ShouldHaveCorrectStructure() {
+        ErrorResponseException errorResponse = new ErrorResponseException("Test error");
+
+        assertEquals("Test error", errorResponse.getError());
+        assertNotNull(errorResponse.toString());
+    }
+
+    @Test
+    void handleMultipleNotFoundExceptions_ShouldAllReturnNotFound() {
+        UserNotFoundException userEx = new UserNotFoundException("User not found");
+        ItemNotFoundException itemEx = new ItemNotFoundException("Item not found");
+
+        ResponseEntity<ErrorResponseException> userResponse = errorHandler.handleNotFoundExceptions(userEx);
+        ResponseEntity<ErrorResponseException> itemResponse = errorHandler.handleNotFoundExceptions(itemEx);
+
+        assertEquals(HttpStatus.NOT_FOUND, userResponse.getStatusCode());
+        assertEquals(HttpStatus.NOT_FOUND, itemResponse.getStatusCode());
     }
 }

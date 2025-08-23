@@ -57,9 +57,6 @@ public abstract class BaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Spring автоматически откатывает транзакцию благодаря @Transactional
-        // Просто создаем тестовые данные
-
         user1 = createUser("User1", "user1@email.com");
         user2 = createUser("User2", "user2@email.com");
         user3 = createUser("User3", "user3@email.com");
