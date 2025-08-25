@@ -35,23 +35,23 @@ class CommentDtoJsonTest {
         assertThat(result).extractingJsonPathStringValue("$.authorName").isEqualTo("John");
         assertThat(result).extractingJsonPathStringValue("$.created").isEqualTo("2023-01-01T12:00:00");
     }
-//
-//    @Test
-//    void testDeserialize() throws IOException {
-//        String content = """
-//        {
-//            "id": 1,
-//            "text": "Nice!",
-//            "authorName": "Alice",
-//            "created": "2023-01-01T12:00:00"
-//        }
-//        """;
-//
-//        CommentDto result = objectMapper.readValue(content, CommentDto.class);
-//
-//        assertThat(result.getId()).isEqualTo(1L);
-//        assertThat(result.getText()).isEqualTo("Nice!");
-//        assertThat(result.getAuthorName()).isEqualTo("Alice");
-//        assertThat(result.getCreated()).isEqualTo(LocalDateTime.of(2023, 1, 1, 12, 0));
-//    }
+
+    @Test
+    void testDeserialize() throws IOException {
+        String content = new StringBuilder()
+                .append("{")
+                .append("\"id\": 1,")
+                .append("\"text\": \"Nice!\",")
+                .append("\"authorName\": \"Alice\",")
+                .append("\"created\": \"2023-01-01T12:00:00\"")
+                .append("}")
+                .toString();
+
+        CommentDto result = objectMapper.readValue(content, CommentDto.class);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getText()).isEqualTo("Nice!");
+        assertThat(result.getAuthorName()).isEqualTo("Alice");
+        assertThat(result.getCreated()).isEqualTo(LocalDateTime.of(2023, 1, 1, 12, 0));
+    }
 }
